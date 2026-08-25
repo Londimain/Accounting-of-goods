@@ -351,14 +351,18 @@ class InventoryApp:
         about_win.transient(self.root)
         about_win.grab_set()
 
-        # Размеры окна (УВЕЛИЧЕНЫ)
-        width, height = 600, 650
-        # Позиционирование по центру экрана
+        # ИЗМЕНЕНО: Размеры окна (ширина увеличена до 780, высота 650)
+        width, height = 580, 630
+        
+        # ИЗМЕНЕНО: Позиционирование - фиксированный отступ сверху 60 пикселей (окно выше)
         screen_width = about_win.winfo_screenwidth()
-        screen_height = about_win.winfo_screenheight()
         x = (screen_width - width) // 2
-        y = (screen_height - height) // 2
+        y = 25
+        
         about_win.geometry(f"{width}x{height}+{x}+{y}")
+        
+        # ИЗМЕНЕНО: Делаем окно полупрозрачным (95% непрозрачности), чтобы было красиво на фоне
+        about_win.attributes('-alpha', 0.95)
 
         # Заголовок
         Label(about_win, text="Движение материалов цеха розлива.",
@@ -367,7 +371,7 @@ class InventoryApp:
 
         Label(about_win, text="Версия 1.0 | Дата выпуска: 2026",
               bg=self.bg_panel, fg=self.fg_light,
-              font=("Segoe UI", 10)).pack(pady=(0, 15))
+              font=("Segoe UI", 10)).pack(pady=(0, 0))
 
         # Описание (текст со скриншота)
         desc = """
@@ -394,19 +398,18 @@ class InventoryApp:
 E-mail: ismxfactor@gmail.com
 Телефон: +375 (29) 547-39-03
 
-
 © 2026 ОАО «Компания MogNat». Все права защищены.
         """
-        # Добавлен wraplength для переноса текста внутри окна
+        # ИЗМЕНЕНО: wraplength увеличен до 720 (с учетом новой ширины окна)
         lbl = Label(about_win, text=desc, bg=self.bg_panel, fg=self.fg_text,
-                    font=("Segoe UI", 10), justify="left", wraplength=650)
-        lbl.pack(padx=20, pady=10, fill="both", expand=True)
+                    font=("Segoe UI", 10), justify="left", wraplength=580)
+        lbl.pack(padx=5, pady=5, fill="both", expand=True)
 
         # Кнопка закрыть
         btn = Button(about_win, text="Закрыть", command=about_win.destroy,
                      bg=self.color_blue, fg="#ffffff",
                      font=("Segoe UI", 10, "bold"),
-                     padx=20, pady=5,
+                     padx=20, pady=10,
                      relief="solid", borderwidth=2,
                      highlightthickness=2,
                      highlightcolor="#ffffff",
