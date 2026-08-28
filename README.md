@@ -286,7 +286,7 @@ pyinstaller --onefile --windowed --name "Inventory" --icon="ico\app.ico" --add-d
 
 MIT License
 
-Copyright (c) Londimain [2026 ОАО «Компания MogNat»]
+Copyright (c) Londimain 2026 ОАО «Компания MogNat»
 
 Данное программное обеспечение распространяется бесплатно и может быть использовано, скопировано, изменено, объединено, опубликовано, распространено, сублицензировано и/или продано без ограничений.
 
