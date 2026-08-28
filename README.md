@@ -255,11 +255,13 @@ pyinstaller --onefile --windowed --name "Inventory" --icon="ico\app.ico" --add-d
 Ошибка при вводе количества	Используйте точку (.) или запятую (,) для десятичных чисел
 Календарь не открывается	Установите pip install tkcalendar
 Отрицательный остаток	Проверьте корректность операций (возможно, расход превысил приход)
+
 🔧 Конфигурация
 
 Программа использует локальную базу данных inventory.db в папке с программой.
 
 Путь к иконкам: папка ico в директории программы.
+
 📝 Примечания
 
     База данных inventory.db создаётся автоматически при первом запуске
@@ -290,11 +292,12 @@ Copyright (c) Londimain [2026 ОАО «Компания MogNat»]
 
 Версия: 1.0
 Дата выпуска: 2026
+
 📊 Скриншоты
 
 <img width="1920" height="1040" alt="Снимок экрана 2026-08-28 134416" src="https://github.com/user-attachments/assets/10a3eff4-6791-426a-b7ad-658afcf5be64" />
-<img width="1920" height="1040" alt="Снимок экрана 2026-08-28 134437" src="https://github.com/user-attachments/assets/d7d4b44e-f1d3-4fc2-87e1-372c409b56dc" />
-<img width="1920" height="1040" alt="Снимок экрана 2026-08-28 134428" src="https://github.com/user-attachments/assets/16edf9be-aae9-4222-b32b-a1851034e2fc" />
+<img width="1920" height="1040" alt="Снимок экрана 2026-08-28 134749" src="https://github.com/user-attachments/assets/892ea8c5-f95b-45e2-914f-bb3a41d6f883" />
+<img width="1920" height="1040" alt="Снимок экрана 2026-08-28 134732" src="https://github.com/user-attachments/assets/007e479c-f6b9-486b-9828-0c5984211194" />
 
 🗂️ История версий
 Версия 1.0 (2026)
