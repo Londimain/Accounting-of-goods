@@ -287,12 +287,12 @@ pyinstaller --onefile --windowed --name "Inventory" --icon="ico\app.ico" --add-d
     📧 Email: ismxfactor@gmail.com
 
     📞 Телефон: +375 (29) 547-39-03
-
+    
 📄 Лицензия
 
 MIT License
 
-Copyright (c) Londimain 2026 ОАО «Компания MogNat»
+Copyright (c) 2026 Londimain ОАО «Компания MogNat»
 
 Данное программное обеспечение распространяется бесплатно и может быть использовано, скопировано, изменено, объединено, опубликовано, распространено, сублицензировано и/или продано без ограничений.
 
