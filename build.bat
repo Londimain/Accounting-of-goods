@@ -35,6 +35,8 @@ pyinstaller ^
     --hidden-import=PIL ^
     --hidden-import=Pillow ^
     --collect-all=PIL ^
+    --exclude-module kivy ^
+    --exclude-module kivy_deps ^
     "%ENTRY%"
 if errorlevel 1 goto :error
 
