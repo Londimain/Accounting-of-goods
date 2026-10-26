@@ -207,7 +207,7 @@ class InventoryApp(WidgetHelpersMixin, ProductsTabMixin,
             else:
                 btn.config(bg=self.bg_panel, fg=self.fg_light)
 
-    # --- О программе (ПЕРЕРАБОТАНО) -------------------------------------------
+    # --- О программе ---------------------------------------------------------
     def show_about(self):
         about_win = Toplevel(self.root)
         about_win.title(f"О программе — {APP_NAME}")
@@ -218,10 +218,10 @@ class InventoryApp(WidgetHelpersMixin, ProductsTabMixin,
 
         # Размеры окна
         width, height = 600, 640
-        screen_width = about_win.winfo_screenwidth()
-        screen_height = about_win.winfo_screenheight()
-        x = (screen_width - width) // 2
-        y = (screen_height - height) // 2 - 20
+        # Центрируем относительно главного окна программы, а не экрана
+        self.root.update_idletasks()
+        x = self.root.winfo_rootx() + (self.root.winfo_width() - width) // 2
+        y = self.root.winfo_rooty() + (self.root.winfo_height() - height) // 2
         about_win.geometry(f"{width}x{height}+{x}+{y}")
         
         # Заголовки
@@ -268,11 +268,24 @@ E-mail: ismxfactor@gmail.com
 Телефон: +375 (29) 547-39-03
 """
 
+        # Используем обычный курсор для возможности выделения текста
         txt = Text(text_frame, bg=self.bg_input, fg=self.fg_text,
                    font=("Segoe UI", 10), relief="flat", bd=0,
-                   wrap="word", padx=15, pady=15, cursor="arrow")
+                   wrap="word", padx=15, pady=15, cursor="xterm")
         txt.insert("1.0", desc)
-        txt.config(state="disabled")
+        
+        # Разрешаем копирование (Ctrl+C) и выделение (Ctrl+A), 
+        # но запрещаем случайное редактирование текста
+        def block_edit(event):
+            if event.state == 0x4:  # Если зажат Ctrl
+                if event.keysym.lower() in ('c', 'a'):
+                    return
+            if event.keysym in ('Left', 'Right', 'Up', 'Down', 'Home', 'End', 'Prior', 'Next'):
+                return
+            return "break"
+
+        txt.bind("<Key>", block_edit)
+        self.bind_copy_paste(txt) # Ваш метод из widgets.py
         
         scrollbar = Scrollbar(text_frame, command=txt.yview)
         txt.config(yscrollcommand=scrollbar.set)
@@ -285,12 +298,11 @@ E-mail: ismxfactor@gmail.com
         btn_frame.pack(pady=(5, 20))
 
         def open_github():
-            # Замените ссылку на ваш реальный репозиторий
             webbrowser.open_new("https://github.com/Londimain/Accounting-of-goods")
 
-        # Кнопка "Репозиторий на GitHub" (ярко-синяя)
+        # Кнопка "Репозиторий на GitHub"
         btn_github = Button(btn_frame, text="Репозиторий на GitHub", command=open_github,
-               bg="#4a90d9", fg="#000000",  # <-- ИЗМЕНЕНО: ярко-синий фон
+               bg="#4a90d9", fg="#000000",
                font=("Segoe UI", 11, "bold"),
                padx=25, pady=10,
                relief="solid", borderwidth=1,
@@ -302,7 +314,7 @@ E-mail: ismxfactor@gmail.com
 
         # Кнопка "Закрыть"
         btn_close = Button(btn_frame, text="Закрыть", command=about_win.destroy,
-               bg=self.color_blue, fg="#000000", # <-- ИЗМЕНЕНО fg
+               bg=self.color_blue, fg="#000000",
                font=("Segoe UI", 11, "bold"),
                padx=50, pady=10,
                relief="solid", borderwidth=1,
@@ -312,7 +324,7 @@ E-mail: ismxfactor@gmail.com
                cursor="hand2")
         btn_close.pack(side="left")
 
-        # Добавляем эффект наведения для красоты
+        # Эффект наведения
         def on_enter(btn, bg_color):
             if btn['state'] != 'disabled':
                 btn['bg'] = self.lighten_color(bg_color)
@@ -321,7 +333,6 @@ E-mail: ismxfactor@gmail.com
             if btn['state'] != 'disabled':
                 btn['bg'] = bg_color
 
-        # Для GitHub используем новый синий цвет
         btn_github.bind("<Enter>", lambda e: on_enter(btn_github, "#4a90d9"))
         btn_github.bind("<Leave>", lambda e: on_leave(btn_github, "#4a90d9"))
         

@@ -1,5 +1,5 @@
 import sqlite3
-from tkinter import Frame, Label, messagebox
+from tkinter import Frame, Label, messagebox, StringVar
 import tkinter.ttk as ttk
 
 from .db import get_db_connection
@@ -36,9 +36,32 @@ class ProductsTabMixin:
 
         self.pm_cancel_btn = self.make_icon_button(
             btn_frame, " Отмена", "cancel", self.on_product_cancel,
-            self.color_cancel, fg=self.fg_dark, padx=15, pady=8) # <-- ИЗМЕНЕНО fg
+            self.color_cancel, fg=self.fg_dark, padx=15, pady=8)
         self.pm_cancel_btn.pack(side="left", padx=0)
         self.pm_cancel_btn.config(state="disabled")
+
+        # --- Копирование/вставка + ENTER --------------------------------
+        self.bind_copy_paste(self.pm_name)
+        self.bind_copy_paste(self.pm_gtin)
+        self.pm_name.bind("<Return>", lambda e: self.on_product_add())
+        self.pm_gtin.bind("<Return>", lambda e: self.on_product_add())
+
+        # --- НОВОЕ: поиск по товарам -----------------------------------
+        search_row = Frame(top_frame, bg=self.bg_panel)
+        search_row.grid(row=1, column=0, columnspan=8, sticky="ew", padx=5, pady=(5, 5))
+
+        Label(search_row, text="🔍 Поиск:", bg=self.bg_panel, fg=self.fg_text,
+              font=("Segoe UI", 11)).pack(side="left", padx=(0, 8))
+        self.product_search_var = StringVar()
+        self.product_search_entry = ttk.Entry(
+            search_row, textvariable=self.product_search_var,
+            width=40, style="Custom.TEntry")
+        self.product_search_entry.pack(side="left", fill="x", expand=True)
+        self.bind_copy_paste(self.product_search_entry)
+        self.product_search_entry.bind("<Return>",
+                                       lambda e: self.update_products_table())
+        self.product_search_entry.bind("<KeyRelease>",
+                                       lambda e: self.update_products_table())
 
         self.pm_status = Label(frame, text="", bg=self.bg_panel,
                                fg=self.color_red, font=("Segoe UI", 10))
@@ -65,6 +88,10 @@ class ProductsTabMixin:
 
         self.products_tree.pack(side="left", fill="both", expand=True)
         scroll_y.pack(side="right", fill="y")
+
+        # --- НОВОЕ: навигация при редактировании -----------------------
+        self.products_tree.bind("<ButtonRelease-1>", self._on_products_tree_click)
+        self.products_tree.bind("<Delete>", lambda e: self.on_product_delete())
 
         action_frame = Frame(frame, bg=self.bg_panel)
         action_frame.pack(fill="x", padx=20, pady=(10, 20))
@@ -93,13 +120,52 @@ class ProductsTabMixin:
                               self.color_red, padx=15, pady=8).pack(
             side="left", padx=(5, 5))
 
-    def update_products_table(self):
+    # --- НОВОЕ: клик по таблице при редактировании ---------------------
+    def _on_products_tree_click(self, event):
+        if self.editing_product_id is None:
+            return
+        item = self.products_tree.identify_row(event.y)
+        if not item:
+            return
+        pid = int(item)
+        if pid == self.editing_product_id:
+            return
+        self._load_product_for_edit(pid)
+
+    def _load_product_for_edit(self, pid):
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT name, gtin FROM products WHERE id=?", (pid,))
+        row = cur.fetchone()
+        conn.close()
+        if not row:
+            return
+        self.editing_product_id = pid
+        self.pm_name.delete(0, "end")
+        self.pm_name.insert(0, row["name"])
+        self.pm_gtin.delete(0, "end")
+        self.pm_gtin.insert(0, row["gtin"] or "")
+        self.pm_add_btn.config(text=" Обновить")
+        self.pm_cancel_btn.config(state="normal")
+        self.pm_status.config(text="Режим редактирования", fg=self.color_yellow)
+
+    def update_products_table(self, search=None):
+        if search is None:
+            search = (self.product_search_var.get().strip().lower()
+                      if hasattr(self, "product_search_var") else "")
+
         for item in self.products_tree.get_children():
             self.products_tree.delete(item)
 
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("SELECT id, name, gtin FROM products ORDER BY sort_order, id")
+        query = "SELECT id, name, gtin FROM products"
+        params = []
+        if search:
+            query += " WHERE LOWER(name) LIKE ? OR LOWER(COALESCE(gtin,'')) LIKE ?"
+            params = [f"%{search}%", f"%{search}%"]
+        query += " ORDER BY sort_order, id"
+        cur.execute(query, params)
         rows = cur.fetchall()
         conn.close()
 
@@ -137,8 +203,6 @@ class ProductsTabMixin:
             conn.commit()
 
             msg = "✅ Товар обновлён" if was_editing else "✅ Товар добавлен"
-            # ВАЖНО: сначала сбрасываем форму (это очистит статус),
-            # затем ставим сообщение об успехе.
             self.on_product_cancel()
             self.pm_status.config(text=msg, fg=self.color_green)
 
@@ -166,23 +230,7 @@ class ProductsTabMixin:
         if not sel:
             messagebox.showwarning("Внимание", "Выберите товар")
             return
-
-        pid = int(sel[0])
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("SELECT name, gtin FROM products WHERE id=?", (pid,))
-        row = cur.fetchone()
-        conn.close()
-
-        if row:
-            self.editing_product_id = pid
-            self.pm_name.delete(0, "end")
-            self.pm_name.insert(0, row["name"])
-            self.pm_gtin.delete(0, "end")
-            self.pm_gtin.insert(0, row["gtin"] or "")
-            self.pm_add_btn.config(text=" Обновить")
-            self.pm_cancel_btn.config(state="normal")
-            self.pm_status.config(text="Режим редактирования", fg=self.color_yellow)
+        self._load_product_for_edit(int(sel[0]))
 
     def on_product_delete(self):
         sel = self.products_tree.selection()
@@ -190,20 +238,25 @@ class ProductsTabMixin:
             messagebox.showwarning("Внимание", "Выберите товар")
             return
 
-        if messagebox.askyesno("Подтверждение", "Удалить товар и все операции?"):
-            pid = int(sel[0])
-            conn = get_db_connection()
-            cur = conn.cursor()
-            cur.execute("DELETE FROM products WHERE id=?", (pid,))
-            conn.commit()
-            conn.close()
+        # --- НОВОЕ: пароль администратора -------------------------------
+        if not self.ask_admin_password("удаление товара"):
+            return
+        if not messagebox.askyesno("Подтверждение", "Удалить товар и все операции?"):
+            return
 
-            self.update_products_table()
-            self.update_movements_table()
-            self.update_balances_table()
-            self.refresh_dropdowns()
-            self.pm_status.config(text="✅ Товар удалён", fg=self.color_green)
-            self.update_hashes()
+        pid = int(sel[0])
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM products WHERE id=?", (pid,))
+        conn.commit()
+        conn.close()
+
+        self.update_products_table()
+        self.update_movements_table()
+        self.update_balances_table()
+        self.refresh_dropdowns()
+        self.pm_status.config(text="✅ Товар удалён", fg=self.color_green)
+        self.update_hashes()
 
     def on_move_product(self, direction):
         sel = self.products_tree.selection()

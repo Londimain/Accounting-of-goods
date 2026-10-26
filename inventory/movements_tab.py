@@ -37,6 +37,8 @@ class MovementsTabMixin:
               font=("Segoe UI", 11)).grid(row=0, column=5, padx=15, pady=10, sticky="e")
         self.op_qty = ttk.Entry(top_frame, width=15, style="Qty.TEntry")
         self.op_qty.grid(row=0, column=6, padx=5, pady=10, sticky="w")
+        self.bind_copy_paste(self.op_qty)
+        self.op_qty.bind("<Return>", lambda e: self.on_movement_save())
 
         Label(top_frame, text="Дата:", bg=self.bg_panel, fg=self.fg_text,
               font=("Segoe UI", 11)).grid(row=0, column=7, padx=15, pady=10, sticky="e")
@@ -50,6 +52,7 @@ class MovementsTabMixin:
         self.op_date.pack(side="left", fill="both", expand=True, padx=(3, 0), pady=3)
         self.op_date.insert(0, datetime.now().strftime("%d.%m.%Y"))
         self.op_date.configure(state="readonly")
+        self.bind_copy_paste(self.op_date)
 
         self.cal_btn = Button(date_container, text="",
                               bg=self.color_blue, fg="#ffffff",
@@ -82,8 +85,26 @@ class MovementsTabMixin:
 
         self.op_cancel_btn = self.make_icon_button(
             btn_frame, " Отмена", "cancel", self.on_movement_cancel,
-            self.color_cancel, fg=self.fg_dark, padx=15, pady=8) # <-- ИЗМЕНЕНО fg
+            self.color_cancel, fg=self.fg_dark, padx=15, pady=8)
         self.op_cancel_btn.pack(side="left", padx=97)
+
+        # --- НОВОЕ: поиск по операциям ----------------------------------
+        search_row = Frame(top_frame, bg=self.bg_panel)
+        search_row.grid(row=2, column=0, columnspan=10, sticky="ew",
+                        padx=5, pady=(5, 10))
+
+        Label(search_row, text="🔍 Поиск:", bg=self.bg_panel, fg=self.fg_text,
+              font=("Segoe UI", 11)).pack(side="left", padx=(0, 8))
+        self.movement_search_var = tk.StringVar()
+        self.movement_search_entry = ttk.Entry(
+            search_row, textvariable=self.movement_search_var,
+            width=40, style="Custom.TEntry")
+        self.movement_search_entry.pack(side="left", fill="x", expand=True)
+        self.bind_copy_paste(self.movement_search_entry)
+        self.movement_search_entry.bind("<Return>",
+                                        lambda e: self.update_movements_table())
+        self.movement_search_entry.bind("<KeyRelease>",
+                                        lambda e: self.update_movements_table())
 
         self.op_status = Label(frame, text="", bg=self.bg_panel,
                                fg=self.color_red, font=("Segoe UI", 10))
@@ -117,6 +138,8 @@ class MovementsTabMixin:
         self.movements_tree.pack(side="left", fill="both", expand=True)
         scroll_y.pack(side="right", fill="y")
 
+        self.movements_tree.bind("<ButtonRelease-1>", self._on_movements_tree_click)
+        self.movements_tree.bind("<Delete>", lambda e: self.on_movement_delete())
         action_frame = Frame(frame, bg=self.bg_panel)
         action_frame.pack(fill="x", padx=20, pady=(10, 20))
 
@@ -134,6 +157,58 @@ class MovementsTabMixin:
                               self.on_movement_delete,
                               self.color_red, padx=20, pady=8).pack(
             side="left", padx=35)
+
+    def _on_movements_tree_click(self, event):
+        item = self.movements_tree.identify_row(event.y)
+
+        # Клик по пустому месту — сбрасываем фильтр от "Остатков"
+        if not item:
+            self.update_movements_table()
+            self.op_status.config(text="")
+            return
+
+        # Клик по строке во время редактирования — подгружаем поля
+        if self.editing_movement_id is not None:
+            mid = int(item)
+            if mid != self.editing_movement_id:
+                self._load_movement_for_edit(mid)
+
+    def _load_movement_for_edit(self, mid):
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM movements WHERE id=?", (mid,))
+        row = cur.fetchone()
+        conn.close()
+        if not row:
+            return
+
+        product_name = None
+        for name, pid in self.products_by_name.items():
+            if pid == row["product_id"]:
+                product_name = name
+                break
+
+        if not product_name:
+            self.op_status.config(text="❌ Товар не найден", fg=self.color_red)
+            return
+
+        self.editing_movement_id = mid
+        self.op_product.set(product_name)
+        self.op_type.current(0 if row["mtype"] == "in" else 1)
+        self.op_qty.delete(0, "end")
+        self.op_qty.insert(0, fmt_qty_clean(row["qty"]))
+
+        try:
+            dt = datetime.strptime(row["date"], "%Y-%m-%d")
+            self.op_date.configure(state="normal")
+            self.op_date.delete(0, "end")
+            self.op_date.insert(0, dt.strftime("%d.%m.%Y"))
+            self.op_date.configure(state="readonly")
+        except Exception:
+            pass
+
+        self.op_save_btn.config(text=" Обновить")
+        self.op_status.config(text="Режим редактирования", fg=self.color_yellow)
 
     def _open_calendar(self):
         from tkcalendar import Calendar
@@ -157,7 +232,7 @@ class MovementsTabMixin:
         cal.pack(fill="both", expand=True, padx=10, pady=10)
 
         Button(top, text="Выбрать", command=grab_date,
-               bg=self.color_blue, fg="#000000", # <-- ИЗМЕНЕНО fg
+               bg=self.color_blue, fg="#000000",
                font=("Segoe UI", 10, "bold"),
                relief="solid", borderwidth=2,
                highlightthickness=2,
@@ -235,7 +310,6 @@ class MovementsTabMixin:
 
             msg = ("✅ Операция обновлена" if was_editing
                    else "✅ Операция сохранена")
-            # ВАЖНО: сначала сброс формы (очистит статус), потом сообщение.
             self.on_movement_cancel()
             self.op_status.config(text=msg, fg=self.color_green)
 
@@ -269,42 +343,7 @@ class MovementsTabMixin:
         if not sel:
             messagebox.showwarning("Внимание", "Выберите операцию")
             return
-
-        mid = int(sel[0])
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("SELECT * FROM movements WHERE id=?", (mid,))
-        row = cur.fetchone()
-        conn.close()
-
-        if row:
-            product_name = None
-            for name, pid in self.products_by_name.items():
-                if pid == row["product_id"]:
-                    product_name = name
-                    break
-
-            if not product_name:
-                self.op_status.config(text="❌ Товар не найден", fg=self.color_red)
-                return
-
-            self.editing_movement_id = mid
-            self.op_product.set(product_name)
-            self.op_type.current(0 if row["mtype"] == "in" else 1)
-            self.op_qty.delete(0, "end")
-            self.op_qty.insert(0, fmt_qty_clean(row["qty"]))
-
-            try:
-                dt = datetime.strptime(row["date"], "%Y-%m-%d")
-                self.op_date.configure(state="normal")
-                self.op_date.delete(0, "end")
-                self.op_date.insert(0, dt.strftime("%d.%m.%Y"))
-                self.op_date.configure(state="readonly")
-            except Exception:
-                pass
-
-            self.op_save_btn.config(text=" Обновить")
-            self.op_status.config(text="Режим редактирования", fg=self.color_yellow)
+        self._load_movement_for_edit(int(sel[0]))
 
     def on_movement_delete(self):
         sel = self.movements_tree.selection()
@@ -312,31 +351,45 @@ class MovementsTabMixin:
             messagebox.showwarning("Внимание", "Выберите операцию")
             return
 
-        if messagebox.askyesno("Подтверждение", "Удалить операцию?"):
-            mid = int(sel[0])
-            conn = get_db_connection()
-            cur = conn.cursor()
-            cur.execute("DELETE FROM movements WHERE id=?", (mid,))
-            conn.commit()
-            conn.close()
+        # --- НОВОЕ: пароль администратора -------------------------------
+        if not self.ask_admin_password("удаление операции"):
+            return
+        if not messagebox.askyesno("Подтверждение", "Удалить операцию?"):
+            return
 
-            self.update_movements_table()
-            self.update_balances_table()
-            self.op_status.config(text="✅ Операция удалена", fg=self.color_green)
-            self.update_hashes()
+        mid = int(sel[0])
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM movements WHERE id=?", (mid,))
+        conn.commit()
+        conn.close()
 
-    def update_movements_table(self):
+        self.update_movements_table()
+        self.update_balances_table()
+        self.op_status.config(text="✅ Операция удалена", fg=self.color_green)
+        self.update_hashes()
+
+    def update_movements_table(self, search=None):
+        if search is None:
+            search = (self.movement_search_var.get().strip().lower()
+                      if hasattr(self, "movement_search_var") else "")
+
         for item in self.movements_tree.get_children():
             self.movements_tree.delete(item)
 
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("""
+        query = """
             SELECT m.id, m.date, m.qty, m.mtype, p.name, p.gtin
             FROM movements m
             JOIN products p ON m.product_id = p.id
-            ORDER BY m.date DESC, m.id DESC
-        """)
+        """
+        params = []
+        if search:
+            query += " WHERE LOWER(p.name) LIKE ? OR LOWER(COALESCE(p.gtin,'')) LIKE ?"
+            params = [f"%{search}%", f"%{search}%"]
+        query += " ORDER BY m.date DESC, m.id DESC"
+        cur.execute(query, params)
         rows = cur.fetchall()
         conn.close()
 
